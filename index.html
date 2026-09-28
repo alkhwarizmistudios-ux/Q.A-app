@@ -464,6 +464,12 @@ function toggleReveal() {
   renderSlide();
 }
 
+// Esc in fullscreen is consumed by the browser (no keydown), so end the
+// presentation whenever fullscreen is left.
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && $('present').classList.contains('on')) stopPresentation();
+});
+
 $('btnPresent').onclick = startPresentation;
 $('pPrev').onclick = () => go(-1);
 $('pNext').onclick = () => go(1);
