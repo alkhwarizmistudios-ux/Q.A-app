@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>شرائح الأسئلة</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --text: #1d2330;
+    --muted: #6b7280;
+    --border: #dfe2e8;
+    --accent: #2f6fed;
+    --accent-soft: #e6eefe;
+    --correct: #1f9d55;
+    --correct-soft: #e3f6ea;
+    --wrong: #d64545;
+    --slide-bg: #14213d;
+    --slide-text: #ffffff;
+    --slide-card: rgba(255, 255, 255, 0.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 8px;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--wrong); }
+  button.icon { padding: 4px 9px; }
+  button:disabled { opacity: .4; cursor: default; }
+  input[type=text], textarea {
+    font: inherit;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  textarea { resize: vertical; min-height: 90px; }
+  input:focus, textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+
+  /* ---------- Editor layout ---------- */
+  header {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  header .title-input { flex: 1; min-width: 180px; font-size: 18px; font-weight: 600; }
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: calc(100vh - 63px);
+  }
+  aside {
+    border-left: 1px solid var(--border);
+    background: var(--panel);
+    overflow-y: auto;
+    padding: 12px;
+  }
+  .thumb {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    background: #fff;
+  }
+  .thumb.active { border-color: var(--accent); background: var(--accent-soft); }
+  .thumb .num {
+    flex: none;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--slide-bg);
+    color: #fff;
+    display: grid; place-items: center;
+    font-size: 13px;
+  }
+  .thumb .txt { font-size: 14px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .thumb .txt.empty { color: var(--muted); font-style: italic; }
+  .thumb .warn { color: var(--wrong); font-size: 12px; }
+
+  main { overflow-y: auto; padding: 24px; }
+  .editor { max-width: 760px; margin: 0 auto; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+  .editor h2 { margin: 0 0 16px; font-size: 18px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .editor h2 .tools { display: flex; gap: 6px; }
+  label.field { display: block; font-weight: 600; margin: 18px 0 8px; }
+  .hint { color: var(--muted); font-size: 13px; font-weight: normal; }
+  .option {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 6px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+  }
+  .option.correct { background: var(--correct-soft); border-color: var(--correct); }
+  .option .letter { flex: none; width: 28px; text-align: center; font-weight: 700; color: var(--muted); }
+  .option input[type=radio] { flex: none; width: 20px; height: 20px; accent-color: var(--correct); cursor: pointer; }
+  .empty-state { text-align: center; color: var(--muted); padding: 60px 20px; }
+
+  /* ---------- Presentation ---------- */
+  #present {
+    position: fixed; inset: 0;
+    background: var(--slide-bg);
+    color: var(--slide-text);
+    display: none;
+    flex-direction: column;
+    z-index: 10;
+  }
+  #present.on { display: flex; }
+  .slide {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4vh 6vw;
+    gap: 4vh;
+    overflow: auto;
+  }
+  .slide .counter { font-size: 2.2vh; opacity: .6; }
+  .slide .question { font-size: clamp(22px, 5vh, 56px); font-weight: 700; line-height: 1.4; white-space: pre-wrap; }
+  .slide .answers { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5vh 2vw; }
+  .slide .answers.single { grid-template-columns: 1fr; }
+  .slide .ans {
+    display: flex; align-items: center; gap: 1.5vw;
+    padding: 2.4vh 2vw;
+    background: var(--slide-card);
+    border: 2px solid transparent;
+    border-radius: 16px;
+    font-size: clamp(16px, 3.3vh, 38px);
+    transition: background .3s, border-color .3s, opacity .3s;
+  }
+  .slide .ans .l {
+    flex: none;
+    width: 1.8em; height: 1.8em;
+    border-radius: 50%;
+    background: rgba(255,255,255,.15);
+    display: grid; place-items: center;
+    font-weight: 700;
+  }
+  .slide.revealed .ans { opacity: .35; }
+  .slide.revealed .ans.right { opacity: 1; background: var(--correct); border-color: #7be3a6; }
+  .slide.revealed .ans.right .l { background: rgba(255,255,255,.3); }
+  .slide .explain { font-size: clamp(14px, 2.6vh, 28px); opacity: 0; transition: opacity .3s; white-space: pre-wrap; }
+  .slide.revealed .explain { opacity: .85; }
+  .slide.cover { align-items: center; text-align: center; }
+  .slide.cover h1 { font-size: clamp(28px, 8vh, 90px); margin: 0; }
+  .slide.cover p { font-size: clamp(16px, 3vh, 32px); opacity: .7; margin: 0; }
+  .controls {
+    display: flex; gap: 10px; justify-content: center; align-items: center;
+    padding: 14px;
+    background: rgba(0,0,0,.25);
+  }
+  .controls button { background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.2); }
+  .controls button.primary { background: var(--correct); border-color: var(--correct); }
+  .controls .keys { opacity: .5; font-size: 13px; margin-inline-start: 12px; }
+
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; height: auto; }
+    aside { border-left: none; border-bottom: 1px solid var(--border); max-height: 220px; }
+    main { padding: 16px; }
+    .slide .answers { grid-template-columns: 1fr; }
+    .controls .keys { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <input type="text" class="title-input" id="deckTitle" placeholder="عنوان العرض">
+  <button id="btnImport">فتح ملف</button>
+  <button id="btnExport">حفظ كملف</button>
+  <button class="primary" id="btnPresent">▶ بدء العرض</button>
+  <input type="file" id="fileInput" accept=".json,application/json" hidden>
+</header>
+
+<div class="layout">
+  <aside>
+    <div id="thumbs"></div>
+    <button class="primary" id="btnAdd" style="width:100%">+ سؤال جديد</button>
+  </aside>
+  <main id="editorArea"></main>
+</div>
+
+<div id="present">
+  <div class="slide" id="slide"></div>
+  <div class="controls">
+    <button id="pPrev">→ السابق</button>
+    <button class="primary" id="pReveal">إظهار الإجابة</button>
+    <button id="pNext">التالي ←</button>
+    <button id="pExit">إنهاء</button>
+    <span class="keys">الأسهم للتنقل · مسافة لإظهار الإجابة · Esc للخروج</span>
+  </div>
+</div>
+
+<script>
+const LETTERS = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
+const MIN_OPTIONS = 2, MAX_OPTIONS = 6;
+const STORAGE_KEY = 'quiz-slides-deck';
+
+let deck = load() || {
+  title: 'اختبار جديد',
+  questions: [newQuestion()]
+};
+let current = 0;
+
+function newQuestion() {
+  return { text: '', options: ['', '', '', ''], correct: null, explanation: '' };
+}
+
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    return isValidDeck(d) ? d : null;
+  } catch { return null; }
+}
+
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(deck)); } catch {}
+}
+
+function isValidDeck(d) {
+  return d && typeof d === 'object' && Array.isArray(d.questions) &&
+    d.questions.every(q => q && typeof q.text === 'string' && Array.isArray(q.options));
+}
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function problems(q) {
+  const filled = q.options.filter(o => o.trim()).length;
+  if (!q.text.trim()) return 'نص السؤال فارغ';
+  if (filled < 2) return 'يحتاج خيارين على الأقل';
+  if (q.correct === null || !q.options[q.correct]?.trim()) return 'لم تُحدَّد الإجابة الصحيحة';
+  return '';
+}
+
+/* ---------- Editor ---------- */
+function renderThumbs() {
+  $('thumbs').innerHTML = deck.questions.map((q, i) => {
+    const p = problems(q);
+    return `<div class="thumb ${i === current ? 'active' : ''}" data-i="${i}">
+      <div class="num">${i + 1}</div>
+      <div>
+        <div class="txt ${q.text.trim() ? '' : 'empty'}">${esc(q.text.trim() || 'سؤال بدون نص')}</div>
+        ${p ? `<div class="warn">⚠ ${p}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderEditor() {
+  const area = $('editorArea');
+  if (!deck.questions.length) {
+    area.innerHTML = '<div class="empty-state">لا توجد أسئلة بعد. اضغط «+ سؤال جديد» للبدء.</div>';
+    return;
+  }
+  const q = deck.questions[current];
+  const n = deck.questions.length;
+  area.innerHTML = `
+    <div class="editor">
+      <h2>السؤال ${current + 1} من ${n}
+        <span class="tools">
+          <button class="icon" data-act="up" title="تحريك للأعلى" ${current === 0 ? 'disabled' : ''}>▲</button>
+          <button class="icon" data-act="down" title="تحريك للأسفل" ${current === n - 1 ? 'disabled' : ''}>▼</button>
+          <button class="icon" data-act="dup" title="نسخ السؤال">⧉</button>
+          <button class="icon danger" data-act="del" title="حذف السؤال">🗑</button>
+        </span>
+      </h2>
+      <label class="field" for="qText">نص السؤال</label>
+      <textarea id="qText" placeholder="اكتب السؤال هنا...">${esc(q.text)}</textarea>
+
+      <label class="field">الخيارات <span class="hint">— اختر الدائرة بجانب الإجابة الصحيحة</span></label>
+      <div id="opts">
+        ${q.options.map((o, i) => `
+          <div class="option ${q.correct === i ? 'correct' : ''}">
+            <input type="radio" name="correct" value="${i}" ${q.correct === i ? 'checked' : ''} title="الإجابة الصحيحة">
+            <span class="letter">${LETTERS[i]}</span>
+            <input type="text" data-opt="${i}" value="${esc(o)}" placeholder="الخيار ${LETTERS[i]}">
+            <button class="icon danger" data-remove="${i}" title="حذف الخيار" ${q.options.length <= MIN_OPTIONS ? 'disabled' : ''}>✕</button>
+          </div>`).join('')}
+      </div>
+      <button id="btnAddOpt" ${q.options.length >= MAX_OPTIONS ? 'disabled' : ''}>+ إضافة خيار</button>
+
+      <label class="field" for="qExplain">شرح الإجابة <span class="hint">(اختياري — يظهر عند كشف الإجابة)</span></label>
+      <textarea id="qExplain" placeholder="لماذا هذه هي الإجابة الصحيحة؟">${esc(q.explanation || '')}</textarea>
+    </div>`;
+}
+
+function refresh() { save(); renderThumbs(); renderEditor(); }
+
+$('thumbs').addEventListener('click', e => {
+  const t = e.target.closest('.thumb');
+  if (!t) return;
+  current = +t.dataset.i;
+  refresh();
+});
+
+$('btnAdd').onclick = () => {
+  deck.questions.splice(current + 1, 0, newQuestion());
+  current = deck.questions.length === 1 ? 0 : current + 1;
+  refresh();
+  $('qText')?.focus();
+};
+
+$('editorArea').addEventListener('input', e => {
+  const q = deck.questions[current];
+  if (e.target.id === 'qText') q.text = e.target.value;
+  else if (e.target.id === 'qExplain') q.explanation = e.target.value;
+  else if (e.target.dataset.opt !== undefined) q.options[+e.target.dataset.opt] = e.target.value;
+  else return;
+  save(); renderThumbs();
+});
+
+$('editorArea').addEventListener('change', e => {
+  if (e.target.name !== 'correct') return;
+  deck.questions[current].correct = +e.target.value;
+  refresh();
+});
+
+$('editorArea').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn || btn.disabled) return;
+  const qs = deck.questions, q = qs[current];
+
+  if (btn.id === 'btnAddOpt') {
+    q.options.push('');
+    refresh();
+    $('opts').querySelector(`[data-opt="${q.options.length - 1}"]`).focus();
+  } else if (btn.dataset.remove !== undefined) {
+    const i = +btn.dataset.remove;
+    q.options.splice(i, 1);
+    if (q.correct === i) q.correct = null;
+    else if (q.correct > i) q.correct--;
+    refresh();
+  } else if (btn.dataset.act === 'up' || btn.dataset.act === 'down') {
+    const j = current + (btn.dataset.act === 'up' ? -1 : 1);
+    [qs[current], qs[j]] = [qs[j], qs[current]];
+    current = j;
+    refresh();
+  } else if (btn.dataset.act === 'dup') {
+    qs.splice(current + 1, 0, JSON.parse(JSON.stringify(q)));
+    current++;
+    refresh();
+  } else if (btn.dataset.act === 'del') {
+    if (!confirm('حذف هذا السؤال؟')) return;
+    qs.splice(current, 1);
+    current = Math.max(0, Math.min(current, qs.length - 1));
+    refresh();
+  }
+});
+
+$('deckTitle').addEventListener('input', e => { deck.title = e.target.value; save(); });
+
+/* ---------- Import / Export ---------- */
+$('btnExport').onclick = () => {
+  const blob = new Blob([JSON.stringify(deck, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (deck.title.trim() || 'اختبار') + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+$('btnImport').onclick = () => $('fileInput').click();
+$('fileInput').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const d = JSON.parse(await file.text());
+    if (!isValidDeck(d)) throw new Error();
+    deck = { title: d.title || '', questions: d.questions.map(q => ({ ...newQuestion(), ...q })) };
+    current = 0;
+    $('deckTitle').value = deck.title;
+    refresh();
+  } catch {
+    alert('الملف غير صالح. اختر ملفاً محفوظاً من هذا التطبيق.');
+  }
+};
+
+/* ---------- Presentation ---------- */
+// Slide 0 is the cover, 1..n are questions, n+1 is the end slide.
+let slideIdx = 0, revealed = false, showList = [];
+
+function startPresentation() {
+  showList = deck.questions.filter(q => !problems(q));
+  const skipped = deck.questions.length - showList.length;
+  if (!showList.length) { alert('لا توجد أسئلة مكتملة للعرض. تأكد من كتابة السؤال والخيارات وتحديد الإجابة الصحيحة.'); return; }
+  if (skipped && !confirm(`يوجد ${skipped} سؤال غير مكتمل وسيتم تخطّيه. متابعة؟`)) return;
+  slideIdx = 0; revealed = false;
+  $('present').classList.add('on');
+  document.documentElement.requestFullscreen?.().catch(() => {});
+  renderSlide();
+}
+
+function stopPresentation() {
+  $('present').classList.remove('on');
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+
+function renderSlide() {
+  const slide = $('slide'), total = showList.length;
+  slide.className = 'slide';
+  $('pPrev').disabled = slideIdx === 0;
+  $('pNext').disabled = slideIdx === total + 1;
+
+  if (slideIdx === 0 || slideIdx === total + 1) {
+    slide.classList.add('cover');
+    slide.innerHTML = slideIdx === 0
+      ? `<h1>${esc(deck.title || 'اختبار')}</h1><p>${total} ${total === 1 ? 'سؤال' : 'أسئلة'}</p>`
+      : `<h1>انتهت الأسئلة</h1><p>شكراً لكم</p>`;
+    $('pReveal').style.visibility = 'hidden';
+    return;
+  }
+
+  const q = showList[slideIdx - 1];
+  const opts = q.options.map((o, i) => ({ o, i })).filter(x => x.o.trim());
+  const longAnswers = opts.some(x => x.o.length > 40);
+  if (revealed) slide.classList.add('revealed');
+  slide.innerHTML = `
+    <div class="counter">السؤال ${slideIdx} / ${total}</div>
+    <div class="question">${esc(q.text)}</div>
+    <div class="answers ${longAnswers ? 'single' : ''}">
+      ${opts.map((x, k) => `<div class="ans ${x.i === q.correct ? 'right' : ''}"><span class="l">${LETTERS[k]}</span><span>${esc(x.o)}</span></div>`).join('')}
+    </div>
+    ${q.explanation?.trim() ? `<div class="explain">💡 ${esc(q.explanation)}</div>` : ''}`;
+  $('pReveal').style.visibility = 'visible';
+  $('pReveal').textContent = revealed ? 'إخفاء الإجابة' : 'إظهار الإجابة';
+}
+
+function go(delta) {
+  const next = slideIdx + delta;
+  if (next < 0 || next > showList.length + 1) return;
+  slideIdx = next; revealed = false;
+  renderSlide();
+}
+
+function toggleReveal() {
+  if (slideIdx === 0 || slideIdx > showList.length) return;
+  revealed = !revealed;
+  renderSlide();
+}
+
+$('btnPresent').onclick = startPresentation;
+$('pPrev').onclick = () => go(-1);
+$('pNext').onclick = () => go(1);
+$('pReveal').onclick = toggleReveal;
+$('pExit').onclick = stopPresentation;
+
+document.addEventListener('keydown', e => {
+  if (!$('present').classList.contains('on')) return;
+  // RTL: the left arrow moves forward, the right arrow moves back.
+  if (['ArrowLeft', 'PageDown', 'Enter'].includes(e.key)) go(1);
+  else if (['ArrowRight', 'PageUp', 'Backspace'].includes(e.key)) go(-1);
+  else if (e.key === ' ') toggleReveal();
+  else if (e.key === 'Escape') stopPresentation();
+  else return;
+  e.preventDefault();
+});
+
+$('deckTitle').value = deck.title;
+refresh();
+</script>
+</body>
+</html>
